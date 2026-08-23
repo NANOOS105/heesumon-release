@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<!-- heesumon built: '2026-08-21 17:30' -->
+<!-- heesumon built: '2026-08-23 21:41' -->
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -335,8 +335,10 @@ body.desk #nightTint      { display:none }
 }
 #ham.drag ~ #hamShadow, .drag + #hamShadow{opacity:.25}
 
-/* 똥 */
-.poop{position:absolute;width:13px;height:8px;cursor:pointer;z-index:4;
+/* 똥 — #ham(z-index 5)보다 위에 둡니다.
+   자다가 싼 똥은 자리가 곧 잠자는 큰 그림(자세 sleep_*)의 자리라, 예전 z-index 4
+   로는 그 밑에 깔려 안 보이고 눌리지도 않았습니다 (베딩 밑에 똥이 갇히는 문제). */
+.poop{position:absolute;width:13px;height:8px;cursor:pointer;z-index:6;
   background:radial-gradient(circle at 35% 30%, #7a5a3e 0, #4e3722 72%);
   /* 햄스터 똥은 동글동글한 덩어리가 아니라 작고 긴 타원입니다 */
   border-radius:50%; box-shadow:0 1px 2px rgba(0,0,0,.22);
@@ -1237,7 +1239,7 @@ const CFG = {
      만든 날짜(built)는 tools/build.py 가 묶을 때 채워 넣습니다 —
      그래서 친구가 받은 파일이 언제 것인지 앱 안에서 바로 확인할 수 있습니다. */
   version: '1.0.0',
-  built:   '2026-08-21 17:30',
+  built:   '2026-08-23 21:41',
 
   saveKey: 'heesumon.save.v1',
   maxOfflineDays: 7,          // 이보다 오래 비워두면 그만큼만 계산합니다
@@ -1684,16 +1686,14 @@ const Game = {
       const s = Game.s;
       if (s.dead) return { ok:false, why:'dead' };
       if (s.food > 92) return { ok:false, why:'full', line:'refuse_food' };
-      /* 자고 있어도 그릇에는 부어둘 수 있습니다. 깨우지 않습니다.
-         (월요일에 켜면 자고 있으면서 배는 고픈 상태인데, 그때 밥 주기가
-          아무것도 안 되면 답답합니다. 자는 채로 그릇만 채워둡니다) */
-      if (s.asleep){
-        s.food = clamp(s.food + amount, 0, 100);
-        s.stats.fed++;
-        s.bowlFull = true;
-        Game.touch('feed');
-        return { ok:true, line:'fed_asleep', quiet:true };
-      }
+      /* 자고 있을 때 밥을 주면 깹니다.
+         전에는 자는 채로 그릇만 채워뒀는데, 그러면 standBehind 가 그릇 앞으로
+         옮기는 처리는 그대로 타서 잠든 그림(베딩째)이 그릇 쪽으로 밀려간
+         것처럼 보이는 문제가 있었습니다. 밥을 주는데 안 깨는 것도 이상했고요.
+         forcedAwake 를 세우지 않으면 체력이 아직 낮아 다음 판정에서 바로
+         도로 잠듭니다. */
+      const wasAsleep = s.asleep;
+      if (wasAsleep){ s.asleep = false; s.forcedAsleep = false; s.forcedAwake = true; }
       s.food = clamp(s.food + amount, 0, 100);
       s.mood = clamp(s.mood + 5, 0, 100);
       s.stats.fed++;
@@ -1707,19 +1707,15 @@ const Game = {
         else Game.emit('change');
       }, 4300);
       Game.touch('feed');
-      return { ok:true, line:'fed' };
+      return { ok:true, line: wasAsleep ? 'fed_wake' : 'fed' };
     },
     water(){
       const s = Game.s;
       if (s.dead) return { ok:false, why:'dead' };
       if (s.water > 92) return { ok:false, why:'full', line:'refuse_water' };
-      /* 밥과 같은 이유로, 자고 있어도 물은 채워둘 수 있습니다 */
-      if (s.asleep){
-        s.water = clamp(s.water + 40, 0, 100);
-        s.stats.watered++;
-        Game.touch('water');
-        return { ok:true, line:'fed_asleep', quiet:true };
-      }
+      /* 밥과 같은 이유로, 자고 있을 때 물을 주면 깹니다 */
+      const wasAsleep = s.asleep;
+      if (wasAsleep){ s.asleep = false; s.forcedAsleep = false; s.forcedAwake = true; }
       s.water = clamp(s.water + 40, 0, 100);
       s.stats.watered++;
       /* 케이지에는 급수기 그림이 있지만 바탕화면에는 아무것도 없어서
@@ -1730,7 +1726,7 @@ const Game = {
       setTimeout(() => { if (!s.dead && !s.asleep) Game.busy('excited', 1600); },
                  띠 ? 3500 : 3100);
       Game.touch('water');
-      return { ok:true, line:'watered' };
+      return { ok:true, line: wasAsleep ? 'watered_wake' : 'watered' };
     },
     play(){
       const s = Game.s;
@@ -1882,10 +1878,14 @@ const L = {
 
   /* 자고 있을 때 — 깨우지 않고 넘어갈 때 하는 말.
      쓰다듬기(petted_asleep)와 같은 결로, 자는 걸 방해하지 않습니다. */
-  fed_asleep: ['(자면서 코를 실룩)', '(꿈에서 먹는 중인가)', '냠... 냠...',
-               '(그릇 쪽으로 몸을 돌린다)', 'zzz...'],
   busy_asleep: ['(쌔근쌔근)', 'zzz...', '(꿈틀)', '(더 웅크린다)',
                 '(들은 척도 안 한다)', '(코를 실룩)'],
+
+  /* 자다가 밥·물 때문에 깼을 때 — woken_angry 와 달리 화내지 않습니다 */
+  fed_wake: ['(부스스 일어나며) 밥 냄새 맡고 깼어.', '음... 밥이다! 다 깼어.',
+             '자다가 벌떡. 밥이잖아!', '(눈을 비비며 그릇으로) 냄새가 나서...'],
+  watered_wake: ['(부스스) 목말랐는데 마침 잘됐다.', '음... 물이다. 깼어.',
+                 '자다가 물 마시러 왔어.', '(눈 비비며) 목말랐거든.'],
 
 
 /* ── 처음 만났을 때 ───────────────────────────────────── */
@@ -6747,12 +6747,15 @@ const UI = {
     /* 사용자가 뭘 시켰으면 인사·하트 같은 붙잡아둔 표정보다 그게 우선입니다 */
     if (this.actor) this.actor.hold = 0;
 
-    /* 자는 중에는 깨우지 않습니다.
+    /* 자는 중에는 대부분 깨우지 않습니다.
        예전에는 뭘 시키면 먼저 깨우고 그 일을 했는데, 자는 모습을 보고 싶어서
        가만히 두려던 사람이 우클릭 한 번에 깨워버리게 됐습니다.
-       이제 깨우는 건 '깨우기'(sleep) 하나뿐이고, 나머지는 자게 둡니다.
+       그래서 깨우는 건 '깨우기'(sleep) 하나뿐이던 시절이 있었는데, 밥·물은
+       도로 깨우게 바꿨습니다 (game.js 가 처리) — 자는데 밥을 줬으면
+       안 깨는 게 더 이상했고, 우클릭 자체는 차림표만 열 뿐 아무 것도
+       시키지 않으니 '실수로 깨움' 문제와는 다릅니다.
 
-         밥·물   그릇에 부어만 둡니다 (game.js 에서 자는 채로 처리)
+         밥·물   깨워서 먹입니다
          똥 치우기 원래도 자든 말든 됩니다
          약     자면서도 먹입니다
          그 외   자는 소리만 내고 넘어갑니다 */
@@ -6809,12 +6812,7 @@ const UI = {
         }
       }
       if (!r) return;
-      if (r.line) this.say(Talk.pick(r.line), r.quiet ? 2600 : 3600);
-      if (r.ok && r.quiet){
-        /* 자는 채로 그릇만 채운 경우 — 이펙트도 자세 변화도 없이 조용히 */
-        this.syncAll();
-        return;
-      }
+      if (r.line) this.say(Talk.pick(r.line), 3600);
       if (r.ok){
         this.fx(a); this.react(a);
         /* 쳇바퀴는 신나는 일이라 음표도 같이 */
@@ -6823,8 +6821,11 @@ const UI = {
       this.syncAll();
     };
 
-    /* 소품을 누르면 걸어가는 걸 기다리지 않고 바로 그 앞으로 갑니다 */
-    if (walkTo && !s.asleep){
+    /* 소품을 누르면 걸어가는 걸 기다리지 않고 바로 그 앞으로 갑니다.
+       밥·물은 자고 있어도 어차피 깨어나므로(game.js) 마찬가지로 옮겨둡니다.
+       이걸 안 하면 자는 자리에 그대로 둔 채 standBehind 만 그릇 높이로
+       맞춰서, 베딩째로 그릇 쪽에 걸쳐 있는 것처럼 보였습니다. */
+    if (walkTo && (!s.asleep || a === 'feed' || a === 'water')){
       this.actor.x = this.spotOf(walkTo);
       this.actor.targetX = null;
       this.actor.face = 1;
@@ -7071,6 +7072,15 @@ const UI = {
      대신 쉬지 않을 때는 확실히 돌아다니도록 '어슬렁' 을 올렸습니다. */
   DESK_PICK: { '어슬렁':36, '쉬기':24, '졸기':9, '옆모니터':10, '주머니간식':8,
                '기다리기':8, '세수':5, '딴청':3, '기지개':8, '두리번':3, '잎사귀':11 },
+
+  /* 밤(케이지 화면)에 심심풀이 행동의 가짓수만 살짝 바꿉니다.
+     체력을 더 쓰게 하는 식(야행성 수치)은 game.js 주석에 적어 둔 대로
+     재보니 반대로 돌아서 없앴고, 이건 그 대신 남긴 '보이는 것' 쪽입니다.
+     정의 자체가 빠져 있어서 밤에 케이지를 보고 있으면 idleWhim 이 매번
+     예외를 던지고(콘솔에 TypeError) 그 순간의 심심풀이를 걸러 버리던
+     버그가 있었습니다 — 화면엔 안 보이는 오류라 아무도 몰랐습니다. */
+  DARK_BOOST: { '졸기':1.6, '낮잠':1.4, '하품':1.3, '기다리기':1.2, '쉬기':1.15,
+                '두리번':0.5, '신남':0.5, '쳇바퀴달리기':0.6 },
 
   idleWhim(){
     let list = this.WHIMS;
