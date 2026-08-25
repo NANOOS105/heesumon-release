@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<!-- heesumon built: '2026-08-23 21:41' -->
+<!-- heesumon built: '2026-08-25 09:53' -->
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -722,8 +722,14 @@ body.hideall #app, body.hideall #mini, body.hideall #panel, body.hideall #intro{
   box-shadow:0 2px 7px rgba(80,40,30,.28);
 }
 body.ill #illMark{ opacity:1; visibility:visible }
-/* 햄스터가 작아지는 띠에서는 표시도 같이 작게 */
-body.desk #illMark{ width:21px; height:21px; font-size:11px; border-width:1.2px }
+/* 바탕화면 띠에서는 안 띄웁니다.
+   띠에는 케이지 테두리가 없어서 '머리 옆' 을 잡을 기준이 없습니다. 화면 폭이
+   1920px 쯤이라 계산이 조금만 어긋나도 햄스터에서 한참 떨어진 곳(오른쪽 아래)
+   에 알약만 덩그러니 떠 있게 됩니다. 바탕화면에 뜬금없는 알약이 붙어 있는 건
+   책상 위에 두는 물건으로서 최악이라, 띠에서는 아예 없앴습니다.
+   띠에서 아픈 걸 아는 길은 우클릭 차림표입니다. 맨 위에 '약 주기' 가 !
+   표시를 달고 올라옵니다(소품의 ! 는 띠에서 소품이 없어 안 보입니다). */
+body.desk #illMark{ display:none }
 
 /* 위쪽 막대의 글자 단추 (바탕화면 보내기) */
 .topbtn{
@@ -1239,7 +1245,7 @@ const CFG = {
      만든 날짜(built)는 tools/build.py 가 묶을 때 채워 넣습니다 —
      그래서 친구가 받은 파일이 언제 것인지 앱 안에서 바로 확인할 수 있습니다. */
   version: '1.0.0',
-  built:   '2026-08-23 21:41',
+  built:   '2026-08-25 09:53',
 
   saveKey: 'heesumon.save.v1',
   maxOfflineDays: 7,          // 이보다 오래 비워두면 그만큼만 계산합니다
@@ -1731,8 +1737,11 @@ const Game = {
     play(){
       const s = Game.s;
       if (s.dead) return { ok:false, why:'dead' };
-      if (s.asleep) return { ok:false, why:'asleep', line:'refuse_sleep' };
       if (s.energy < 12) return { ok:false, why:'tired', line:'too_tired' };
+      /* 밥·물·쳇바퀴와 같은 이유로, 자고 있어도 놀아주면 깹니다.
+         체력이 모자란 경우는 위에서 이미 걸렀습니다. */
+      const wasAsleep = s.asleep;
+      if (wasAsleep){ s.asleep = false; s.forcedAsleep = false; s.forcedAwake = true; }
       s.mood   = clamp(s.mood + 18, 0, 100);
       s.energy = clamp(s.energy - 9, 0, 100);
       s.food   = clamp(s.food - 3, 0, 100);
@@ -1740,12 +1749,19 @@ const Game = {
       s.stats.played++;
       Game.busy('play', 3600);
       Game.touch('play');
-      return { ok:true, line:'played' };
+      return { ok:true, line: wasAsleep ? 'wake' : 'played' };
     },
     wheel(){
       const s = Game.s;
-      if (s.dead || s.asleep) return { ok:false, why:'asleep' };
+      if (s.dead) return { ok:false, why:'dead' };
       if (s.energy < 10) return { ok:false, why:'tired', line:'too_tired' };
+      /* 밥·물과 같은 이유로, 자고 있어도 태우면 깹니다.
+         너무 지쳐서(에너지 10 미만) 못 태우는 경우는 위에서 이미 걸렀으니,
+         여기까지 왔다면 깨워도 됩니다 — 안 그러면 재우기(sleep)만 유일한
+         깨우기 수단이라, 자는 중에 쳇바퀴를 눌러도 매번 '자는 중' 대사만
+         나오고 아무 일도 안 일어나 답답했습니다. */
+      const wasAsleep = s.asleep;
+      if (wasAsleep){ s.asleep = false; s.forcedAsleep = false; s.forcedAwake = true; }
       /* 예전엔 체력 14 였습니다. 깨어 있을 때 체력이 1분에 0.24 씩 줄어드니
          한 번 태우는 데 '한 시간 치' 를 쓴 셈이라, 두 번 태우면 바로 졸았습니다.
          놀아주기(체력 9 로 기분 18)보다 손해라 탈 이유도 없었습니다.
@@ -1756,19 +1772,21 @@ const Game = {
       s.stats.ranWheel++;
       Game.busy('wheel', 6000);
       Game.touch('wheel');
-      return { ok:true, line:'wheel' };
+      return { ok:true, line: wasAsleep ? 'wheel_wake' : 'wheel' };
     },
     wash(){
       const s = Game.s;
       if (s.dead) return { ok:false, why:'dead' };
-      if (s.asleep) return { ok:false, why:'asleep', line:'refuse_sleep' };
       if (s.clean > 92) return { ok:false, why:'clean', line:'refuse_wash' };
+      /* 여기도 같습니다 — 자는 애를 씻기면 깹니다 */
+      const wasAsleep = s.asleep;
+      if (wasAsleep){ s.asleep = false; s.forcedAsleep = false; s.forcedAwake = true; }
       s.clean = clamp(s.clean + 45, 0, 100);
       s.mood  = clamp(s.mood + 6, 0, 100);
       s.stats.washed++;
       Game.busy('wash', 3600);
       Game.touch('wash');
-      return { ok:true, line:'washed' };
+      return { ok:true, line: wasAsleep ? 'wake' : 'washed' };
     },
     clean(){                                  // 똥 치우기
       const s = Game.s;
@@ -1886,6 +1904,8 @@ const L = {
              '자다가 벌떡. 밥이잖아!', '(눈을 비비며 그릇으로) 냄새가 나서...'],
   watered_wake: ['(부스스) 목말랐는데 마침 잘됐다.', '음... 물이다. 깼어.',
                  '자다가 물 마시러 왔어.', '(눈 비비며) 목말랐거든.'],
+  wheel_wake: ['(부스스 일어나) 쳇바퀴? 좋아!', '자다 깼는데... 그래, 달리자!',
+               '(눈 비비며) 몸 좀 풀어볼까.', '자다가 벌떡. 쳇바퀴잖아!'],
 
 
 /* ── 처음 만났을 때 ───────────────────────────────────── */
@@ -5143,6 +5163,22 @@ const RULES = [
   '머리에 뭘 그렇게 넣어.', '나는 하루에 한 가지만 기억해. 밥 시간.',
   '잘될 거야. (근거 없음)' ]},
 
+/* ── 결과가 불안할 때 ─────────────────────────────
+   '면접'·'시험' 같은 낱말 없이 '나 붙을까..?' 처럼 결과만 물을 때입니다.
+   ('나 붙을까..?' 가 아무 규칙에도 안 걸린 게 발견된 뒤 추가했습니다)
+   앞선 대화가 면접 얘기였는지는 기억 못 하니, 되나 안되나로 불안해하는
+   말이면 웬만큼 다 이 쪽으로 걸리게 넓게 잡았습니다. */
+{ k:['붙을까','붙었을까','합격할까','합격일까','떨어지면 어떡','떨어질까 봐',
+     '떨어지면 어쩌','잘될까','잘 될까','안 될까 봐','안될까봐'], say:[
+  '당연히 붙지! 내가 보장해.', '{너}라면 될 거야. 나는 알아.',
+  '결과가 어떻든 나는 {너} 편이야.', '(꼬옥 붙어서 응원한다)' ]},
+
+/* ── 자신 없을 때 ── */
+{ k:['자신 없','자신이 없','해낼 수 있을까','할 수 있을까','잘하고 있는 걸까',
+     '잘 하고 있는 걸까','잘하고있는지'], say:[
+  '{너}는 여태 다 해왔잖아.', '나는 {너} 믿어. 근거는 없지만 확신해.',
+  '잘하고 있는지 궁금하다는 거 자체가 잘하고 있다는 뜻이야.', '(옆에서 가만히 응원한다)' ]},
+
 /* ── 사람 관계 ── */
 { k:['남친','여친','애인','소개팅','썸','헤어','결혼','연애','고백'], say:[
   '(관심 폭발) 그래서?', '나보다 좋아?', '음... 나는 잘 모르는 얘기야.' ]},
@@ -5358,11 +5394,23 @@ const Chat = {
       if (this.off){
         this.setLive(false);
         if (root.UI && UI.say) UI.say('(혼자 조용히 지낼게)', 2600);
+      } else if (root.heesumon && root.heesumon.startBridge){
+        /* 앱(exe/heesumon.bat)이면 여기서 바로 켤 수 있습니다.
+           예전에는 폴더를 찾아가 bridge.py 나 chat-bridge.bat 을 따로
+           눌러야 했습니다 — 이제 desktop/main.js 가 대신 띄워 줍니다.
+           파이썬을 띄우는 데 시간이 좀 걸려서 넉넉히 기다렸다 다시 봅니다. */
+        root.heesumon.startBridge();
+        setTimeout(() => this.probe(), 1500);
+        setTimeout(() => {
+          if (!this.live && root.UI && UI.say)
+            UI.say('중계기를 켜는 중인데 아직이네. 파이썬이 깔려 있는지 봐줘.', 5200);
+        }, 3000);
       } else {
+        /* 브라우저로 직접 연 경우 — 여기선 대신 켜 줄 방법이 없습니다 */
         this.probe();
         setTimeout(() => {
           if (!this.live && root.UI && UI.say)
-            UI.say('중계기가 아직 안 켜졌어. heesumon.bat 으로 실행해줘.', 5200);
+            UI.say('중계기가 아직 안 켜졌어. tools/bridge.py 를 실행해줘.', 5200);
         }, 900);
       }
     };
@@ -6747,23 +6795,17 @@ const UI = {
     /* 사용자가 뭘 시켰으면 인사·하트 같은 붙잡아둔 표정보다 그게 우선입니다 */
     if (this.actor) this.actor.hold = 0;
 
-    /* 자는 중에는 대부분 깨우지 않습니다.
-       예전에는 뭘 시키면 먼저 깨우고 그 일을 했는데, 자는 모습을 보고 싶어서
-       가만히 두려던 사람이 우클릭 한 번에 깨워버리게 됐습니다.
-       그래서 깨우는 건 '깨우기'(sleep) 하나뿐이던 시절이 있었는데, 밥·물은
-       도로 깨우게 바꿨습니다 (game.js 가 처리) — 자는데 밥을 줬으면
-       안 깨는 게 더 이상했고, 우클릭 자체는 차림표만 열 뿐 아무 것도
-       시키지 않으니 '실수로 깨움' 문제와는 다릅니다.
+    /* 자는 중이라고 차림표를 막지 않습니다.
+       한때는 '깨우기'(sleep) 말고는 전부 자는 소리만 내고 넘어갔습니다.
+       자는 모습을 보고 싶어 가만히 두려던 사람이 우클릭 한 번에 깨우는 게
+       싫어서였는데, 정작 막아 놓고 보니 밥을 줘도 쳇바퀴를 눌러도 아무 일이
+       안 일어나 고장난 것처럼 보였습니다. 그래서 예외를 하나씩 늘리다가
+       (밥·물 → 쳇바퀴 → …) 결국 전부 열었습니다.
 
-         밥·물   깨워서 먹입니다
-         똥 치우기 원래도 자든 말든 됩니다
-         약     자면서도 먹입니다
-         그 외   자는 소리만 내고 넘어갑니다 */
-    if (s.asleep && a !== 'sleep' && a !== 'light' && a !== 'puzzle'
-        && a !== 'feed' && a !== 'water' && a !== 'clean' && a !== 'medicine'){
-      this.say(Talk.pick('busy_asleep'), 2400);
-      return;
-    }
+       '실수로 깨움' 은 여기서 막을 일이 아니었습니다. 우클릭 자체는 차림표만
+       열 뿐 아무것도 시키지 않으니, 시킨 게 없으면 애초에 깨지 않습니다.
+       깨우는 건 game.js 의 각 동작이 알아서 합니다(feed·water·wheel·play·wash).
+       쓰다듬기는 차림표에 없고 클릭으로 하는 거라 그대로 안 깨웁니다. */
     /* 쳇바퀴를 타는 중이었다면 먼저 내려옵니다.
        안 그러면 바퀴 높이에 뜬 채로 옆으로 미끄러져 그림을 뚫고 나갑니다 */
     if (this.running && a !== 'wheelRun') this.rideOff();
@@ -6822,10 +6864,11 @@ const UI = {
     };
 
     /* 소품을 누르면 걸어가는 걸 기다리지 않고 바로 그 앞으로 갑니다.
-       밥·물은 자고 있어도 어차피 깨어나므로(game.js) 마찬가지로 옮겨둡니다.
-       이걸 안 하면 자는 자리에 그대로 둔 채 standBehind 만 그릇 높이로
-       맞춰서, 베딩째로 그릇 쪽에 걸쳐 있는 것처럼 보였습니다. */
-    if (walkTo && (!s.asleep || a === 'feed' || a === 'water')){
+       밥·물·쳇바퀴는 자고 있어도 어차피 깨어나므로(game.js) 마찬가지로
+       옮겨둡니다. 이걸 안 하면 자는 자리에 그대로 둔 채 standBehind 나
+       rideOn 만 그 소품 높이로 맞춰서, 베딩째로 소품 쪽에 걸쳐 있는 것처럼
+       보였습니다. */
+    if (walkTo && (!s.asleep || a === 'feed' || a === 'water' || a === 'wheelRun')){
       this.actor.x = this.spotOf(walkTo);
       this.actor.targetX = null;
       this.actor.face = 1;
@@ -6899,6 +6942,11 @@ const UI = {
       } },
     { w:12, name:'어슬렁',   run(u){
         const a = u.actor;
+        /* 뛰기가 나왔으면 셋에 하나쯤은 길게 뜁니다 (runBursts 주석 참고).
+           걸음을 먼저 뽑아 두고 그 걸음에 맞는 거리를 고르는 순서입니다 —
+           거리를 먼저 정하면 '뛰는데 코앞까지만' 이 되어 늘 금방 끝납니다. */
+        const 걸음 = u.gait();
+        if (걸음 === 'run' && Math.random() < 0.34){ u.runBursts(); return; }
         if (u.desk){
           /* 띠는 화면 전체 폭이라 '끝에서 끝' 으로 두면 한 번 걷는 데 20초가 넘습니다.
              그렇다고 너무 짧으면 제자리에서 꼼지락거리는 것처럼 보입니다.
@@ -6908,13 +6956,13 @@ const UI = {
           const step = (260 + Math.random() * 640) / w;
           let to = a.x + (Math.random() < 0.5 ? -step : step);
           if (to < 0.03 || to > 0.97) to = a.x - (to - a.x);   // 벽에 닿으면 반대로
-          a.goTo(Math.max(0.03, Math.min(0.97, to)), null, u.gait());
+          a.goTo(Math.max(0.03, Math.min(0.97, to)), null, 걸음);
           u.syncAll();
           return;
         }
         let to = 0.14 + Math.random() * 0.72;
         if (Math.abs(to - a.x) < 0.25) to = a.x < 0.5 ? 0.86 : 0.14;
-        a.goTo(to, null, u.gait()); u.syncAll();
+        a.goTo(to, null, 걸음); u.syncAll();
       } },
     /* 옆 모니터로 마실 가기 — 바탕화면 띠에서 모니터가 두 대 이상일 때만.
        끝까지 걸어가면 창이 통째로 옆 모니터로 넘어갑니다(desktop/main.js) */
@@ -7164,10 +7212,14 @@ const UI = {
       if (잎){ 잎.run(this); a.wanderAt = Date.now() + 11000; return; }
     }
     Game.busy(null, 1);                            // 하던 동작을 놓습니다
+    /* 산책을 시켰을 때도 가끔은 길게 뜁니다. 보려고 부른 것이니 혼자
+       어슬렁거릴 때(0.34)보다 조금 후하게 줍니다. */
+    const 걸음 = this.gait();
+    if (걸음 === 'run' && Math.random() < 0.45){ this.runBursts(); return; }
     /* 지금 자리에서 충분히 떨어진 곳으로 — 코앞으로 가면 걷는 것처럼 안 보입니다 */
     let to = 0.08 + Math.random() * 0.84;
     if (Math.abs(to - a.x) < 0.32) to = a.x < 0.5 ? 0.92 : 0.08;
-    a.goTo(to, null, this.gait());
+    a.goTo(to, null, 걸음);
     a.wanderAt = Date.now() + 6000;
     this.syncAll();
   },
@@ -7204,6 +7256,46 @@ const UI = {
     if (r < 0.20) return 'run';
     if (r < 0.52) return 'amble';
     return 'walk';
+  },
+
+  /* ── 한 번 뛰기 시작하면 가끔 길게 ──────────────────
+     뛰는 게 늘 금방 끝났습니다. 케이지가 좁아서입니다 — 폭이 1 인데 뛰는
+     속도가 초당 0.377(0.145 × 2.6) 이라, 끝에서 끝까지 가도 2.5초입니다.
+     빈도를 올리는 걸로는 안 됩니다. 자주 뛰면 정신만 사나워지고, 한 번이
+     짧은 건 그대로니까요. 그래서 '거리' 를 늘립니다 — 벽에 닿으면 돌아서서
+     한 번 더 뜁니다. 실제 햄스터가 한 번 신나면 왔다 갔다 하는 것과 같습니다.
+
+     도착 콜백 안에서 바로 다음 목적지를 잡으므로 그리기 한 판 안에서
+     이어집니다(update 가 syncAll 보다 먼저라 서 있는 그림이 끼지 않습니다).
+     중간에 사람이 집어 들거나 쳇바퀴에 태우면 그 자리에서 접습니다. */
+  runBursts(){
+    const a = this.actor, u = this;
+    if (!a) return;
+    /* 2~3 번. 케이지에서 3번이면 6~7초쯤 뜁니다 */
+    const 판수 = Math.random() < 0.4 ? 3 : 2;
+    let 남음 = 판수;
+    const 접을까 = () => Game.s.dead || Game.s.asleep || Game.s.busy
+                      || u.dragging || u.lifted || u.running;
+    const 한판 = () => {
+      if (접을까() || --남음 < 0) return;
+      let to;
+      if (u.desk){
+        /* 띠는 화면 폭이 1920px 쯤이라 '반대쪽 끝' 으로 두면 한 번에 7초가
+           넘습니다. 여기서는 700~1400px 씩 끊어 뛰고 벽에서 튕깁니다. */
+        const c = $('#cage');
+        const w = (c && c.clientWidth) || 900;
+        const step = (700 + Math.random() * 700) / w;
+        to = a.x + (a.x < 0.5 ? step : -step);
+        if (to < 0.04 || to > 0.96) to = a.x - (to - a.x);
+      } else {
+        to = a.x < 0.5 ? 0.92 - Math.random() * 0.05
+                       : 0.08 + Math.random() * 0.05;
+      }
+      a.goTo(Math.max(0.04, Math.min(0.96, to)), 한판, 'run');
+    };
+    한판();
+    a.wanderAt = Date.now() + 4000 + 판수 * 3500;   // 뛰는 동안은 딴짓 안 하게
+    this.syncAll();
   },
 
   /* ── 모니터 건너가기 ────────────────────────────────
@@ -7670,8 +7762,12 @@ const UI = {
     const woke = this.wasAsleep && !s.asleep && !s.dead;
     this.wasAsleep = s.asleep;
     if (woke) this._bareStyle = null;        // 다음에 잘 땐 다시 고릅니다
-    /* 자고 일어나면 하품하고, 이어서 기지개 */
-    if (woke){
+    /* 자고 일어나면 하품하고, 이어서 기지개.
+       다만 밥·물·쳇바퀴로 깨운 것이면 건너뜁니다 — 그 액션이 이미
+       Game.busy('eat'|'drink'|'wheel', ...) 를 걸어 둔 채로 이 syncAll 이
+       불려서, 여기서 무조건 'wake' 를 걸면 방금 건 그림을 바로 덮어써
+       버립니다. 그릇 앞에 서서 하품하는 것처럼 보이던 버그였습니다. */
+    if (woke && !s.busy){
       Game.busy('wake', 1900);
       clearTimeout(this._wakeT);
       this._wakeT = setTimeout(() => {
