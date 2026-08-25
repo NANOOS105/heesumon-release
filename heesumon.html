@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<!-- heesumon built: '2026-08-25 09:53' -->
+<!-- heesumon built: '2026-08-25 10:34' -->
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -1245,7 +1245,7 @@ const CFG = {
      만든 날짜(built)는 tools/build.py 가 묶을 때 채워 넣습니다 —
      그래서 친구가 받은 파일이 언제 것인지 앱 안에서 바로 확인할 수 있습니다. */
   version: '1.0.0',
-  built:   '2026-08-25 09:53',
+  built:   '2026-08-25 10:34',
 
   saveKey: 'heesumon.save.v1',
   maxOfflineDays: 7,          // 이보다 오래 비워두면 그만큼만 계산합니다
@@ -6854,7 +6854,14 @@ const UI = {
         }
       }
       if (!r) return;
-      if (r.line) this.say(Talk.pick(r.line), 3600);
+      /* 아직 자고 있으면 깨어 있는 대사가 나오면 안 됩니다.
+         톱밥에 파묻혀 자는 그림 위로 "배불러. (고개를 젓는다)" 가 뜬 적이
+         있습니다 — 배부를 때(food > 92) 는 game.js 가 깨우기 전에 거절하고
+         돌아오기 때문입니다. 거절은 그대로 두는 게 맞습니다. 배부른데 굳이
+         깨울 이유가 없으니까요. 대사만 자는 것으로 바꿉니다.
+         재우기(sleep)는 빼야 합니다 — 그건 자면서 하는 말이 맞습니다. */
+      const 잠꼬대 = Game.s.asleep && !Game.s.dead && a !== 'sleep';
+      if (r.line) this.say(Talk.pick(잠꼬대 ? 'busy_asleep' : r.line), 3600);
       if (r.ok){
         this.fx(a); this.react(a);
         /* 쳇바퀴는 신나는 일이라 음표도 같이 */
@@ -7273,6 +7280,7 @@ const UI = {
     if (!a) return;
     /* 2~3 번. 케이지에서 3번이면 6~7초쯤 뜁니다 */
     const 판수 = Math.random() < 0.4 ? 3 : 2;
+    this._판수 = 판수;                 // 점검표가 몇 판이었는지 보려고 남깁니다
     let 남음 = 판수;
     const 접을까 = () => Game.s.dead || Game.s.asleep || Game.s.busy
                       || u.dragging || u.lifted || u.running;
