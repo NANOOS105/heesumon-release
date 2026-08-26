@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<!-- heesumon built: '2026-08-26 16:54' -->
+<!-- heesumon built: '2026-08-26 17:14' -->
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -1273,7 +1273,7 @@ const CFG = {
      만든 날짜(built)는 tools/build.py 가 묶을 때 채워 넣습니다 —
      그래서 친구가 받은 파일이 언제 것인지 앱 안에서 바로 확인할 수 있습니다. */
   version: '1.0.0',
-  built:   '2026-08-26 16:54',
+  built:   '2026-08-26 17:14',
 
   saveKey: 'heesumon.save.v1',
   maxOfflineDays: 7,          // 이보다 오래 비워두면 그만큼만 계산합니다
@@ -4368,7 +4368,11 @@ Actor.prototype.update = function (nowMs, dt) {
      손이 닿아 살짝 눌렸다 펴지는 느낌만 0.9초에 걸쳐 얹고 잦아듭니다. */
   if (this.patUntil && nowMs < this.patUntil){
     const 남 = (this.patUntil - nowMs) / 900;              // 1 → 0
-    const 눌림 = (0.055 * Math.sin((1 - 남) * Math.PI) + 0.014 * Math.sin(nowMs / 65)) * 남;
+    /* 5.5% 로 시작했는데 '만졌는데 아무 일도 안 일어난 것 같다' 는 말을
+       들었습니다. 그림이 안 바뀌는 쪽에서는 이게 유일한 반응이라
+       두 배로 올렸습니다(11%). 그래도 0.9초에 잦아들어 알림처럼
+       보이지는 않습니다. */
+    const 눌림 = (0.11 * Math.sin((1 - 남) * Math.PI) + 0.022 * Math.sin(nowMs / 65)) * 남;
     m += ` scale(${(1 + 눌림 * 0.55).toFixed(4)},${(1 - 눌림).toFixed(4)})`;
   }
   this.el.style.left = (this.x * 100) + '%';
@@ -8559,7 +8563,6 @@ const UI = {
     /* 아플 때는 쓰다듬어도 신나지 않습니다 */
     if (r.line) this.say(Talk.pick(Game.s.sick ? 'petted_sick' : r.line), 3000);
     if (r.ok){
-      this.fx('pet', 2);
       if (!Game.s.asleep){
         /* 보려고 기다린 자세는 그대로 둡니다.
            예전에는 뭘 하고 있든 쓰다듬는 그림으로 갈아끼웠습니다. 그런데
@@ -8570,9 +8573,14 @@ const UI = {
         if (this.그대로볼자세[지금자세]){
           this.actor.patUntil = performance.now() + 900;
           this.actor.hold = Math.max(this.actor.hold || 0, 2.5);  // 그 사이 안 바뀌게
+          /* 그림이 안 바뀌니 반응이 여기서 나와야 합니다. 하트를 더 띄웁니다.
+             아플 때는 안 띄웁니다 — 아픈데 하트가 날리면 앞뒤가 안 맞습니다.
+             그때는 몸이 눌리는 것과 대사(petted_sick)만 남습니다. */
+          if (!Game.s.sick) this.fx('pet', 4);
         } else {
           this.actor.hold = 0;
           this.actor.set('petted', 4.2, true);   // true = 그림 새로 뽑기
+          this.fx('pet', 2);                     // 그림 자체가 반응이라 적게
         }
       }
     }
