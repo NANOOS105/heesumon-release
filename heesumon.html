@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<!-- heesumon built: '2026-08-26 14:06' -->
+<!-- heesumon built: '2026-08-26 14:38' -->
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -1273,7 +1273,7 @@ const CFG = {
      만든 날짜(built)는 tools/build.py 가 묶을 때 채워 넣습니다 —
      그래서 친구가 받은 파일이 언제 것인지 앱 안에서 바로 확인할 수 있습니다. */
   version: '1.0.0',
-  built:   '2026-08-26 14:06',
+  built:   '2026-08-26 14:38',
 
   saveKey: 'heesumon.save.v1',
   maxOfflineDays: 7,          // 이보다 오래 비워두면 그만큼만 계산합니다
@@ -7084,7 +7084,26 @@ const UI = {
       $('#setName').value = Game.s.name || '';
       $('#setCall').value = Game.s.call || '';
       const v = $('#ver');
-      if (v) v.textContent = Game.versionText();
+      if (v){
+        v.textContent = Game.versionText();
+        /* 미끄럼 감시가 잡은 게 있으면 여기에만 붙입니다.
+           평소에는 아무 데도 안 뜹니다 — 책상에 두는 물건이라 알림처럼
+           보이면 안 됩니다. 설정을 연 사람만 봅니다. */
+        let 잡힌것 = '';
+        try { 잡힌것 = localStorage.getItem('heesumon.slip') || ''; } catch (e) {}
+        if (잡힌것){
+          const 줄들 = 잡힌것.split('\n').filter(Boolean);
+          v.textContent += '\n\n미끄럼 ' + 줄들.length + '건 잡힘 (개발용)\n'
+                         + 줄들.slice(-3).join('\n');
+          v.style.whiteSpace = 'pre-wrap';
+          v.title = '눌러서 지우기';
+          v.onclick = () => {
+            try { localStorage.removeItem('heesumon.slip'); } catch (e) {}
+            v.textContent = Game.versionText();
+            v.onclick = null;
+          };
+        }
+      }
       $('#panel').classList.add('on');
     };
     $('#btnClose').onclick = () => {
@@ -7997,6 +8016,72 @@ const UI = {
      빠뜨리면 물고 있던 게 사라진 채로 평범하게 걷습니다. */
   물고걷기: { leaf_walk:1, leaf_run:1, seed_walk:1 },
 
+  /* ── 미끄럼 감시 ──────────────────────────────────────
+     "앞을 보는 그림인 채로 옆으로 몇 초 미끄러진다" 는 말이 여러 번 나왔는데
+     헤드리스로 네 번을 뒤져도 재현이 안 됐습니다(움직인 프레임 3,500 중 0건).
+     순간적이라 사람이 붙잡기도 어렵습니다.
+
+     그래서 앱이 스스로 잡게 합니다. 쓰는 동안 조건이 맞으면 조용히 적어만
+     두고, 설정창을 열었을 때만 보여줍니다 — 책상에 두는 물건이라
+     알림처럼 뜨면 안 됩니다.
+
+     조건: 화면에서 한 판에 0.5~25px 씩(걷는 속도쯤) 옆으로 갔는데
+           그 순간 그림이 걷는 그림이 아닌 상태가 20판(약 0.3초) 넘게 이어짐.
+     순간이동(밥그릇 앞으로 툭)은 한 판에 수십~수백px 이라 걸러집니다. */
+  걷는그림: null,
+  미끄럼감시(rect){
+    const a = this.actor;
+    if (!a) return;
+    /* 걷는 그림 목록은 한 번만 만듭니다 */
+    if (!this.걷는그림){
+      this.걷는그림 = {};
+      ['walk','dash','amble','leaf_walk','leaf_run','seed_walk'].forEach(p => {
+        const d = Sprites.POSE[p]; if (!d) return;
+        [].concat(d.frames || [], d.intro || [], d.pick || [])
+          .forEach(f => { this.걷는그림[f] = 1; });
+      });
+    }
+    const 가운데 = rect.left + rect.width / 2;
+    const 앞 = this._미끄럼앞;
+    this._미끄럼앞 = 가운데;
+    if (앞 == null) return;
+
+    const 옮김 = Math.abs(가운데 - 앞);
+    const 걷는속도 = 옮김 > 0.5 && 옮김 < 25;
+    const 이상 = 걷는속도 && !this.걷는그림[a.frame]
+              && !this.lifted && !this.dragging && !Game.s.asleep && !Game.s.dead;
+
+    if (이상){
+      if (!this._미끄럼판){
+        this._미끄럼처음 = { 자세:a.pose, 그림:a.frame, busy:Game.s.busy,
+                            running:!!this.running, 띠:!!this.desk,
+                            물러남:!!a.물러남, targetX:a.targetX, gait:a.gait };
+      }
+      this._미끄럼판 = (this._미끄럼판 || 0) + 1;
+      this._미끄럼px = (this._미끄럼px || 0) + 옮김;
+    } else {
+      if (this._미끄럼판 >= 20) this.미끄럼적기();
+      this._미끄럼판 = 0; this._미끄럼px = 0;
+    }
+  },
+
+  미끄럼적기(){
+    const c = this._미끄럼처음 || {};
+    /* 한 줄짜리 글자로 남깁니다 — 나중에 저장소를 뒤져 찾기 쉽게 */
+    const 줄 = 'SLIP|' + new Date().toISOString().slice(5, 19)
+             + '|' + (this._미끄럼판) + '판'
+             + '|' + Math.round(this._미끄럼px) + 'px'
+             + '|pose=' + c.자세 + '|frame=' + c.그림
+             + '|busy=' + c.busy + '|run=' + c.running + '|desk=' + c.띠
+             + '|back=' + c.물러남 + '|target=' + c.targetX + '|gait=' + c.gait;
+    try {
+      const 앞 = (localStorage.getItem('heesumon.slip') || '').split('\n').filter(Boolean);
+      앞.push(줄);
+      localStorage.setItem('heesumon.slip', 앞.slice(-8).join('\n'));   // 최근 8건만
+    } catch (e) {}
+    if (window.console) console.warn(줄);
+  },
+
   /* 그냥 돌아다닐 때의 걸음.
        어슬렁  느릿느릿, 목적 없이
        걷기    보통
@@ -8644,6 +8729,7 @@ const UI = {
           sh.style.opacity = '0';
         } else if (sh){
           const rect = hamEl.getBoundingClientRect();
+          this.미끄럼감시(rect);
           const cageRect = $('#cage').getBoundingClientRect();
           /* 스프라이트 아래쪽이 바닥에서 얼마나 떠 있는지 */
           const lift = Math.max(0, (cageRect.bottom - cageRect.height * 0.195) - rect.bottom);
