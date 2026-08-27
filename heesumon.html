@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<!-- heesumon built: '2026-08-27 15:38' -->
+<!-- heesumon built: '2026-08-27 17:31' -->
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -1273,7 +1273,7 @@ const CFG = {
      만든 날짜(built)는 tools/build.py 가 묶을 때 채워 넣습니다 —
      그래서 친구가 받은 파일이 언제 것인지 앱 안에서 바로 확인할 수 있습니다. */
   version: '1.0.0',
-  built:   '2026-08-27 15:38',
+  built:   '2026-08-27 17:31',
 
   saveKey: 'heesumon.save.v1',
   maxOfflineDays: 7,          // 이보다 오래 비워두면 그만큼만 계산합니다
@@ -2908,6 +2908,42 @@ dance_at3: [
   '{너} 덕분이야.',
 ],
 
+/* ── 자다가 들려서 깼을 때 ────────────────────────────────
+   막 깬 참이라 화내기보다 **얼떨떨한** 쪽입니다. 화는 내려놓은
+   다음에 냅니다(sulk_woken). */
+woken_lift: [
+  '으...? 어디야 여기.',
+  '(눈을 반쯤 뜬다)',
+  '나 자고 있었는데...',
+  '어어어 왜 떠 있어.',
+  '(잠이 덜 깼다)',
+  '음냐... 뭐야.',
+  '내려줘... 자던 중이야.',
+  '꿈인가.',
+],
+woken_lift_at3: [
+  '{너}야...? 나 자고 있었어.',
+  '(비비적) {너} 왜...',
+  '{너}, 이건 좀 아니지 않아?',
+  '음냐... {너} 냄새다.',
+],
+/* 자다 깨서 내려놓인 뒤. 이제 정신이 들어서 화가 납니다 */
+sulk_woken: [
+  '자고 있었다니까.',
+  '(등을 돌리고 다시 눕는다)',
+  '나 다시 잘 거야.',
+  '깨우지 마.',
+  '흥. 잘 자고 있었는데.',
+  '한참 좋은 꿈이었어.',
+  '(눈을 감아버린다)',
+],
+sulk_woken_at3: [
+  '{너}, 자는 사람은 안 건드리는 거야.',
+  '{너}니까 참는다.',
+  '(등 돌린 채) {너} 나빴어.',
+  '다시 잘 테니까 {너} 저리 가.',
+],
+
 /* ── 삐짐 ──────────────────────────────────────────────────
    오래 들고 있다가 내려놨을 때, 또는 자는 걸 억지로 깨웠을 때 잠깐.
    그림이 등을 돌리고 있거나 흘겨보고 있으니 말은 짧게 둡니다 —
@@ -3419,12 +3455,40 @@ const Talk = {
        대신 자주 하면 방해가 되므로 ui.js 에서 간격을 길게 둡니다. */
     /* 바탕화면 띠용 짧은 말도 단계를 탑니다. 띠는 말풍선이 한 줄뿐이라
        긴 대사를 그대로 띄우면 화면을 가립니다(pickShort). */
-    idle_at0: ['...', '음', '(흘끔)', '누구지'],
-    idle_at3: ['{너}다', '♡', '헤헤', '옆에 있을게', '{너} 좋아', '(붙어 앉는다)'],
-    poke_at0: ['...', '음', '(흘끔 본다)', '저기', '아니야'],
-    poke_at3: ['{너} 뭐해?', '나 봐봐', '{너}—', '심심해!', '♡', '{너} 바빠?', '놀자!'],
-    great_at3: ['{너} 최고', '♡♡', '오늘 좋다', '행복해'],
-    bored_at3: ['{너} 놀자', '나 여기', '{너}—', '심심해애'],
+    idle_at0: ['...', '음', '(흘끔)', '누구지', '(눈치 본다)', '어...'],
+    idle_at1: ['응', '어', '(쳐다본다)', '음음', '있네', '괜찮아'],
+    idle_at2: ['왔어?', '뭐 하나 보러 왔어', '(옆에 앉는다)', '음—', '여기 있을게',
+               '심심하진 않아', '헤'],
+    idle_at3: ['{너}다', '♡', '헤헤', '옆에 있을게', '{너} 좋아', '(붙어 앉는다)',
+               '{너} 여기 있네', '(꼬리 살랑)', '{너}—'],
+
+    /* 커서가 한참 멈춰 있을 때 먼저 거는 말.
+       띠는 말풍선이 한 줄이라 짧아야 합니다. 열 자 넘으면 잘립니다.
+       단계마다 말투가 다릅니다 —
+         낯가림  말을 못 붙이고 눈치만 봅니다
+         익숙    짧게 한마디 겁니다
+         편함    편하게 말 걸고 장난도 칩니다
+         딱붙음  이름을 부르고 조릅니다
+       tier 1·2 가 비어 있어서 그동안 둘 다 아래 poke(기본)로 떨어졌습니다.
+       바탕화면에서 먼저 거는 말이 사실상 열 줄뿐이었던 이유입니다. */
+    poke_at0: ['...', '음', '(흘끔 본다)', '저기', '아니야', '(딴 데 본다)',
+               '음...', '(발만 만진다)', '아무것도 아니야', '어...',
+               '(할 말 있는 눈치)', '흠'],
+    poke_at1: ['뭐해?', '바빠?', '(쳐다본다)', '음, 저기', '있잖아', '나 여기 있어',
+               '심심해?', '어때?', '괜찮아?', '조금만 봐줘', '응?',
+               '(고개를 든다)', '쉬어도 돼'],
+    poke_at2: ['뭐 하고 있어?', '나 봐봐', '심심하지?', '멍때리는 중?', '한 판 놀까',
+               '잠깐만 봐', '나도 껴줘', '거기 재밌어?', '(툭툭)', '이리 와봐',
+               '쉬는 시간 아니야?', '나랑 놀자', '(빤히)', '뭐 보는 거야'],
+    poke_at3: ['{너} 뭐해?', '나 봐봐', '{너}—', '심심해!', '♡', '{너} 바빠?', '놀자!',
+               '{너} 나 봐', '{너}야', '{너}, 잠깐만', '나 여기 있는데', '{너} 보고 싶었어',
+               '({너} 쪽으로 붙는다)', '{너} 손 줘', '{너} 나랑 놀아', '(옷깃을 잡는다)',
+               '{너}—! ♡', '나만 봐'],
+    great_at3: ['{너} 최고', '♡♡', '오늘 좋다', '행복해', '{너} 있어서 좋아',
+                '(빙글)', '{너}랑 있으면 다 좋아'],
+    bored_at3: ['{너} 놀자', '나 여기', '{너}—', '심심해애', '{너} 심심해',
+                '(구른다)', '{너} 나 좀'],
+    /* 위 네 단계에 없을 때만 여기로 옵니다 */
     poke:     ['뭐해?', '일 안 해?', '뭐 하고 있어?', '나 봐봐', '심심하지?',
                '멍때리는 중?', '나 여기 있어', '쉬는 중이야?', '응?', '♡'],
 
@@ -3459,7 +3523,9 @@ const Talk = {
       if (결 && 결.length) return this.fill(결[(Math.random() * 결.length) | 0]);
     }
     const 짧은 = this.SHORT[key];
-    if (짧은 && 짧은.length) return 짧은[(Math.random() * 짧은.length) | 0];
+    /* 단계 판에서만 이름을 채우고 있었습니다. 기본 판에 {너} 를 하나라도
+       쓰면 그대로 '{너}' 가 화면에 뜹니다. 양쪽 다 채웁니다. */
+    if (짧은 && 짧은.length) return this.fill(짧은[(Math.random() * 짧은.length) | 0]);
     return this.pick(key);
   },
 
@@ -3803,7 +3869,6 @@ const POSE = {
   seed_find: {
     intro:['seed1','seed3'], introSec:2.0,
     frames:['seed4'], fps:0.02, fallback:'idle',
-    정면:true,
     motion(t){ return breathe(t, 1.1, 0.010); }},
 
   seed_walk: {
@@ -3817,7 +3882,6 @@ const POSE = {
      여기서 대사가 나오므로 다른 자세보다 조금 길게 붙잡습니다. */
   seed_hold: {
     frames:['seed2'], fps:0.02, fallback:'seed_find',
-    정면:true,
     motion(t){ return breathe(t, 1.2, 0.012); }},
 
   /* 꽃을 발견했을 때. 해바라기씨와 **똑같은 얼개**입니다 —
@@ -3839,7 +3903,6 @@ const POSE = {
   flower_find: {
     intro:['flower1','flower4'], introSec:2.4,
     frames:['flower5'], fps:0.02, fallback:'idle',
-    정면:true,
     motion(t){ return breathe(t, 1.1, 0.010); }},
 
   /* 걷는 그림 세 장은 나중에 받았고 앞의 다섯 장보다 크게 그려져 있어서
@@ -3848,11 +3911,11 @@ const POSE = {
   flower_walk: {
     frames:['flowerw1','flowerw2','flowerw3','flowerw2'], fps:4.0,
     fallback:'flower_find',
-    /* 걷는 그림 세 장이 모두 정면이라 뒤집어봐야 방향감이 안 생깁니다.
-       그런데 앞뒤(물었다·내려놓음)는 정면 고정이라, 왼쪽으로 갈 때만
-       걷기 구간에서 얼굴이 홱 돌았다가 되돌아왔습니다. 여기도 고정합니다.
-       해바라기씨는 다릅니다 — seed5·7 이 옆모습이라 뒤집는 게 맞습니다. */
-    정면:true,
+    /* **여기에 정면:true 를 걸면 안 됩니다.** 한 번 걸었다가 왼쪽으로 갈 때
+       뒤로 걷는 꼴이 났습니다. 정면 고정은 뒤집기를 아예 막는 것이라
+       제자리 자세에만 씁니다. 움직이는 자세는 가는 쪽을 봐야 합니다.
+       (앞뒤 자세와 좌우가 한 번 어긋나는 건 감수합니다 — 뒤로 걷는 것보다
+        훨씬 낫습니다) */
     motion(t){
       const d = Math.abs(Math.sin(t * 4.0 * Math.PI)) * 1.2;
       return `translateY(${-d}px)`;
@@ -3861,7 +3924,6 @@ const POSE = {
   /* 물고 와서 네 앞에 내려놓는 부분. 걸어온 방향과 상관없이 앞을 봅니다. */
   flower: {
     frames:['flower2'], fps:0.02, fallback:'happy',
-    정면:true,
     motion(t){ return breathe(t, 1.0, 0.010); }},
 
   /* 친해졌을 때의 쉬는 모습.
@@ -4332,10 +4394,19 @@ const POSE = {
      저절로 하는 행동으로만 나옵니다. '놀아주기' 단추는 예전 play 를
      그대로 씁니다(사용자가 그렇게 정했습니다). */
   ball: {
-    intro:['ball1','ball2','ball3','ball4','ball5'], introSec:5.0,
+    /* **한 번 쭉 가는 이야기입니다. 반복하면 안 됩니다.**
+       공 위치가 공1(앞발) → 공2(밀림) → 공3(저만치) → 공4(다시 앞발) 로
+       움직이는데, 2·3·4 를 되돌려 감으면 공이 저만치 갔다가 앞발로
+       순간이동하는 게 반복됩니다. 실제로 그렇게 만들었다가 물렸습니다.
+       처음엔 다섯 장을 1초에 한 장씩 넘겼는데 그건 슬라이드쇼로 보였습니다.
+       0.5초씩, 굴러가는 장(공3)에서만 한 박자 더 머뭅니다.
+
+       밀치는 몸짓도 뺐습니다 — 그림 안에서 공이 움직이는데 사진 전체를
+       같이 흔들면 서로 싸웁니다. 제자리에서 가지고 노는 것으로 둡니다. */
+    intro:['ball1','ball2','ball3','ball3','ball4','ball5'], introSec:3.0,
     frames:['ball6'], fps:0.02, fallback:'happy',
     정면:true,
-    motion(t){ return breathe(t, 1.2, 0.012); }},
+    motion(t){ return breathe(t, 1.3, 0.011); }},
 
   /* 춤추기 — 일곱 장이 한 바퀴입니다. 전부 서서 앞을 봅니다.
        내림(1) → 들어올림(2) → 양팔 위(7) → 벌림(3)
@@ -4360,7 +4431,12 @@ const POSE = {
      깜빡이지 않고 한 자세로 가만히 있습니다 — 알림처럼 보이면 안 됩니다.
 
      셋 다 정면 고정입니다. 걸어온 방향에 따라 등을 돌린 쪽이 바뀌면
-     삐진 게 아니라 그냥 그림이 뒤집힌 것처럼 보입니다. */
+     삐진 게 아니라 그냥 그림이 뒤집힌 것처럼 보입니다.
+
+     정면 고정은 **제자리 자세에만** 씁니다. 옮겨 다니는 자세에 걸면
+     뒤집기가 막혀서 왼쪽으로 갈 때 뒤로 걷습니다. 꽃·해바라기씨처럼
+     걸어갔다 오는 이야기는 대신 ui.js 에서 방향을 미리 정해
+     발견·걷기·내려놓기가 같은 쪽을 보게 합니다. */
   mad: {                                   // 화남 — 자는데 깨웠을 때 등, 짧게
     pick:['mad1','mad5'], fallback:'angry', 정면:true,
     motion(t){ return breathe(t, 1.6, 0.014); }},
@@ -7397,6 +7473,18 @@ const UI = {
         if (lifted){
           /* 들어올릴 때마다 두 쌍 중 하나를 고릅니다 */
           this.heldAt = Date.now();
+          /* 자고 있어도 들어올리면 깹니다.
+             공중에 들린 채로 자고 있으면 햄스터가 아니라 인형입니다.
+             밥·물·놀아주기·쳇바퀴·세수는 이미 깨우고 있었는데, 이것만
+             빠져 있었습니다. 청소·약·쓰다듬기는 그대로 안 깨웁니다 —
+             그건 조용히 돌보는 것이라 깨우지 않는 게 맞습니다. */
+          this._자다깸 = Game.s.asleep && !Game.s.dead;
+          if (this._자다깸){
+            Game.s.asleep = false;
+            Game.s.forcedAsleep = false;
+            Game.s.forcedAwake = true;      // 손에서 도로 잠들지 않게
+            Game.s.mood = Math.max(0, Game.s.mood - 5);
+          }
           if (!Game.s.asleep) this.fx('dizzy', 2);   // 갑자기 높이 들리면 어질
           this.heldFor = 5000 + Math.random() * 3000;      // 5~8초
           /* 낮게 들었을 때의 자세. 높이 올리면 다른 걸로 바뀌었다가
@@ -7405,7 +7493,8 @@ const UI = {
           this._high = false;
           this.heldPose = this._lowPose;
           if (this.actor) this.actor.set(this.heldPose);
-          if (!Game.s.asleep) this.say(Talk.pick('held'), 3000);
+          if (!Game.s.asleep)
+            this.say(Talk.pick(this._자다깸 ? 'woken_lift' : 'held'), 3000);
         }
         this.syncAll();
       }
@@ -7454,16 +7543,19 @@ const UI = {
              자세가 바뀌면 손 안에서 그림이 튀어서 놀란 것처럼 보입니다.
              오래 들었다는 표시는 이미 held_end 로 나와 있으니, 그걸
              그대로 이어받습니다. */
-          const 오래 = this.heldPose === 'held_end';
+          /* 자다가 들려서 깼으면 얼마나 들고 있었든 삐집니다 */
+          const 오래 = this.heldPose === 'held_end' || this._자다깸;
           Game.busy('surprise', 1200);
           this.fx('bang', 1);
           if (오래){
-            Game.삐짐(75);
+            const 깨웠나 = this._자다깸;
+            Game.삐짐(깨웠나 ? 100 : 75);
             setTimeout(() => {
               if (!Game.s.dead && !Game.s.asleep && !this.lifted)
-                this.say(Talk.pick('sulk_put'), 3200);
+                this.say(Talk.pick(깨웠나 ? 'sulk_woken' : 'sulk_put'), 3200);
             }, 1300);                       // 놀란 그림이 지나간 뒤에
           }
+          this._자다깸 = false;
         }
       } else {
         ham.style.bottom = '';
@@ -8004,6 +8096,19 @@ const UI = {
     const walkTo = noProps ? null
                  : { feed:'bowl', water:'bottle', wheelRun:'wheel', sleep:'bed' }[a];
 
+    /* 소품 앞으로 옮기기. 자고 있을 때는 **깨어난 게 확인된 뒤에만** 부릅니다
+       (아래 참고). 톱밥 그림을 먼저 벗기고 옮겨야 더미가 안 따라갑니다. */
+    const 옮기기 = () => {
+      this.bedMode(null);
+      this.actor.x = this.spotOf(walkTo);
+      this.actor.targetX = null;
+      this.actor.face = 1;
+    };
+    let 자다옮길까 = false;              // 자는 중이라 결과를 보고 옮길 것인가
+    const 됐으면옮기기 = r => {
+      if (자다옮길까 && r && r.ok){ 옮기기(); 자다옮길까 = false; }
+    };
+
     const run = () => {
       let r;
       if (a === 'wheelRun' && noProps){
@@ -8017,9 +8122,11 @@ const UI = {
         return;
       } else if (a === 'wheelRun'){
         r = Game.act.wheel();
+        됐으면옮기기(r);                 // 바퀴에 올리기 전에 자리부터
         if (r.ok) this.rideOn();
       } else {
         r = Game.act[a] ? Game.act[a]() : null;
+        됐으면옮기기(r);
         /* 급수기·밥그릇은 뒤에서 씁니다 */
         const back = noProps ? null : { water:['bottle', 4600], feed:['bowl', 4400] }[a];
         if (back && r && r.ok){
@@ -8048,14 +8155,19 @@ const UI = {
     };
 
     /* 소품을 누르면 걸어가는 걸 기다리지 않고 바로 그 앞으로 갑니다.
-       밥·물·쳇바퀴는 자고 있어도 어차피 깨어나므로(game.js) 마찬가지로
-       옮겨둡니다. 이걸 안 하면 자는 자리에 그대로 둔 채 standBehind 나
-       rideOn 만 그 소품 높이로 맞춰서, 베딩째로 소품 쪽에 걸쳐 있는 것처럼
-       보였습니다. */
-    if (walkTo && (!s.asleep || a === 'feed' || a === 'water' || a === 'wheelRun')){
-      this.actor.x = this.spotOf(walkTo);
-      this.actor.targetX = null;
-      this.actor.face = 1;
+       이걸 안 하면 자는 자리에 그대로 둔 채 standBehind 나 rideOn 만
+       그 소품 높이로 맞춰서, 베딩째로 소품 쪽에 걸쳐 있는 것처럼 보였습니다.
+
+       **자고 있을 때는 순서가 반대여야 합니다.** 밥·물·쳇바퀴는 보통
+       깨우지만 **거절될 수 있습니다** — 배부르면(food > 92) 밥을 마다하고,
+       체력이 모자라면 쳇바퀴를 안 탑니다. 거절되면 깨지 않으므로 그림이
+       톱밥 그대로인데, 먼저 옮겨 놓은 탓에 톱밥 더미가 밥그릇 옆으로
+       걸어가 있었습니다. 그래서 깨어난 걸 확인한 뒤에 옮깁니다. */
+    if (walkTo && !s.asleep){
+      옮기기();
+      run();
+    } else if (walkTo && (a === 'feed' || a === 'water' || a === 'wheelRun')){
+      자다옮길까 = true;
       run();
     } else run();
   },
@@ -8231,18 +8343,12 @@ const UI = {
         clearTimeout(u._seedT);
         const 접을까 = () => Game.s.dead || Game.s.asleep || u.dragging
                           || u.running || u.lifted;
+        /* 발견하기 전에 갈 곳을 정합니다 — 그래야 세 자세가 같은 쪽을 봅니다 */
+        const 목적지 = u.갈곳(() => 0.28 + Math.random() * 0.30);
         u._seedT = setTimeout(() => {
           if (접을까()) return;
           Game.busy('seed_walk', 7000);       // 못 가고 막혔을 때의 상한선
-          const c = $('#cage');
-          const w = (c && c.clientWidth) || 900;
-          const 거리 = u.desk ? (300 + Math.random() * 460) / w
-                              : (0.28 + Math.random() * 0.30);
-          const 왼쪽 = a.x - 0.05, 오른쪽 = 0.95 - a.x;
-          let 방향 = Math.random() < 0.5 ? -1 : 1;
-          if (거리 > (방향 < 0 ? 왼쪽 : 오른쪽)) 방향 = -방향;
-          const 갈만큼 = Math.min(거리, 방향 < 0 ? 왼쪽 : 오른쪽);
-          a.goTo(a.x + 방향 * 갈만큼, () => {
+          a.goTo(목적지, () => {
             const z = Game.s;
             if (z.dead || z.asleep || u.dragging) return;
             if (z.busy !== 'seed_walk') return;
@@ -8283,10 +8389,6 @@ const UI = {
     { w: 7, name:'딴청',     run(){ Game.busy('side', 5200); } },
     { w: 9, name:'혼자놀기', run(u){ Game.busy('play', 4200);
         if (Math.random() < .5) u.say(Talk.pick('idle'), 3000); } },
-    /* 공놀이 — 여섯 장이 한 이야기라 끝까지 보여줍니다(8.8초).
-       앞 다섯 장이 5.0초, 마지막 장(끌어안기)이 3.8초입니다.
-       말풍선이 5.1초에 떠서 8.1초에 사라지므로 그림이 먼저 안 사라집니다.
-       제자리에서 합니다 — 그림에 공이 같이 그려져 있습니다. */
     /* 춤추기 — 기분이 좋을수록 자주 나옵니다(아래 idleWhim 에서 무게를 바꿉니다).
        일곱 장이 한 바퀴라 두 바퀴쯤(3.2초) 돌린 뒤 마지막에 한마디.
        제자리에서 합니다. */
@@ -8301,13 +8403,17 @@ const UI = {
         u.actor.wanderAt = Date.now() + 9000 + Math.random() * 9000;
       } },
 
+    /* 공놀이 — 노는 부분 3.0초 + 끌어안고 3.8초 = 6.8초.
+       여섯 장이 한 번 쭉 가는 이야기입니다(sprites.js 주석 참고).
+       말풍선이 3.1초에 떠서 6.1초에 사라지므로 그림이 먼저 안 사라집니다.
+       제자리에서 합니다 — 그림에 공이 같이 그려져 있습니다. */
     { w: 8, name:'공놀이',   run(u){
-        Game.busy('ball', 8800);
+        Game.busy('ball', 6800);
         u.actor.targetX = null;
         setTimeout(() => {
           if (Game.s.busy === 'ball' && !Game.s.dead && !u.lifted)
             u.say(Talk.pick('ball'), 3000);
-        }, 5100);                       // 공을 끌어안을 때 한마디
+        }, 3100);                       // 공을 끌어안을 때 한마디
         u.actor.wanderAt = Date.now() + 11000 + Math.random() * 9000;
       } },
     { w: 7, name:'쳇바퀴앉기', run(u){
@@ -8336,18 +8442,12 @@ const UI = {
         const 접을까 = () => Game.s.dead || Game.s.asleep || u.dragging
                           || u.running || u.lifted;
         a.targetX = null;
+        /* 발견하기 전에 갈 곳을 정합니다 — 그래야 세 자세가 같은 쪽을 봅니다 */
+        const 목적지 = u.갈곳(() => 0.26 + Math.random() * 0.28);
         u._flowerT = setTimeout(() => {
           if (접을까()) return;
           Game.busy('flower_walk', 7000);      // 못 가고 막혔을 때의 상한선
-          const c = $('#cage');
-          const w = (c && c.clientWidth) || 900;
-          const 거리 = u.desk ? (300 + Math.random() * 460) / w
-                              : (0.26 + Math.random() * 0.28);
-          const 왼쪽 = a.x - 0.05, 오른쪽 = 0.95 - a.x;
-          let 방향 = Math.random() < 0.5 ? -1 : 1;
-          if (거리 > (방향 < 0 ? 왼쪽 : 오른쪽)) 방향 = -방향;
-          const 갈만큼 = Math.min(거리, 방향 < 0 ? 왼쪽 : 오른쪽);
-          a.goTo(a.x + 방향 * 갈만큼, () => {
+          a.goTo(목적지, () => {
             const z = Game.s;
             if (z.dead || z.asleep || u.dragging) return;
             if (z.busy !== 'flower_walk') return;
@@ -8410,6 +8510,24 @@ const UI = {
      웅크리고 오래 쉬는 모습이 제일 햄스터답고 예뻐서 '쉬기' 는 길게 둡니다.
      보고 싶을 때는 조절판의 '산책' 을 누르면 되니까요.
      대신 쉬지 않을 때는 확실히 돌아다니도록 '어슬렁' 을 올렸습니다. */
+  /* 걸어갔다 오는 이야기(꽃·해바라기씨)는 **떠나기 전에** 어느 쪽으로
+     갈지 정합니다. 그래야 발견·걷기·내려놓기가 같은 쪽을 보게 됩니다.
+     예전에는 발견·내려놓기를 정면으로 고정하고 걷기만 뒤집었더니, 왼쪽으로
+     갈 때 얼굴이 홱 돌았다가 되돌아왔습니다. 걷기까지 고정했더니 이번엔
+     **뒤로 걸었습니다.** 방향을 미리 정하는 게 맞습니다. */
+  갈곳(멀리){
+    const a = this.actor;
+    const c = $('#cage');
+    const w = (c && c.clientWidth) || 900;
+    const 거리 = this.desk ? (300 + Math.random() * 460) / w : 멀리();
+    const 왼쪽 = a.x - 0.05, 오른쪽 = 0.95 - a.x;
+    let 방향 = Math.random() < 0.5 ? -1 : 1;
+    if (거리 > (방향 < 0 ? 왼쪽 : 오른쪽)) 방향 = -방향;
+    const 갈만큼 = Math.min(거리, 방향 < 0 ? 왼쪽 : 오른쪽);
+    a.face = 방향;                    // 발견하는 동안에도 이쪽을 봅니다
+    return a.x + 방향 * 갈만큼;
+  },
+
   삐지면안함: { '하트':1, '꽃발견':1, '해바라기씨':1, '공놀이':1, '잎사귀':1, '혼자놀기':1, '춤추기':1 },
 
   DESK_PICK: { '어슬렁':36, '쉬기':24, '졸기':9, '옆모니터':10, '주머니간식':8,
