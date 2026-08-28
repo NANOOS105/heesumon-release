@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<!-- heesumon built: '2026-08-28 16:01' -->
+<!-- heesumon built: '2026-08-28 16:44' -->
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -1273,7 +1273,7 @@ const CFG = {
      만든 날짜(built)는 tools/build.py 가 묶을 때 채워 넣습니다 —
      그래서 친구가 받은 파일이 언제 것인지 앱 안에서 바로 확인할 수 있습니다. */
   version: '1.0.0',
-  built:   '2026-08-28 16:01',
+  built:   '2026-08-28 16:44',
 
   saveKey: 'heesumon.save.v1',
   maxOfflineDays: 7,          // 이보다 오래 비워두면 그만큼만 계산합니다
@@ -1374,6 +1374,22 @@ function freshState(){
     stats: { fed:0, watered:0, played:0, washed:0, petted:0, cleaned:0, ranWheel:0 },
 
     /* 최근 행동 시각 — 대사가 같은 말을 반복하지 않게 씁니다 */
+    /* ── 같이 집중하기 ────────────────────────────────
+       이 시각까지는 **스스로는 아무것도 안 합니다.** 딴짓도 말도 안 하고
+       다가오지도 않습니다. 밥·물·쓰다듬기처럼 사람이 누르는 건 그대로 됩니다.
+       Date.now 기준이라 앱을 껐다 켜도 이어집니다(sulkUntil 과 같은 방식). */
+    focusUntil: 0,
+    focusMin: 25,          // 한 번에 몇 분 (25 · 45 · 50 중에서 고릅니다)
+    focusEnded: 0,         // 끝난 걸 아직 안 보여준 판이 있는지 (Date.now)
+    focusDone: 0,          // 끝까지 같이 있어준 횟수 (누적)
+
+    /* ── 오늘 일기 ────────────────────────────────────
+       '오늘 몇 번' 은 누적(stats)에서 **오늘 아침 값을 뺀 것**입니다.
+       세는 자리를 일곱 군데에 새로 만들면 하나씩 빠뜨립니다(실제로 겪었습니다).
+       하루가 바뀔 때 한 번만 찍어두면 어긋날 데가 없습니다.
+       stats 로 안 세는 것(삐짐·아픔·선물·잠)만 따로 셉니다. */
+    일기: { 날:0, 기준:null, 삐짐:0, 아픔:0, 선물:0, 잠:0 },
+
     lastAct: {},
     seenLines: [],
   };
@@ -1473,6 +1489,15 @@ const Game = {
 
     s.ageMin += dtMin;
 
+    /* 하루가 바뀌면 오늘치를 새로 셉니다.
+       기준이 없으면(처음 켠 판·예전 저장) 지금 값으로 찍고 시작합니다. */
+    const 오늘날 = this.days();
+    if (!s.일기) s.일기 = { 날:0, 기준:null, 삐짐:0, 아픔:0, 선물:0, 잠:0 };
+    if (s.일기.날 !== 오늘날){
+      s.일기 = { 날: 오늘날, 기준: Object.assign({}, s.stats),
+                 삐짐:0, 아픔:0, 선물:0, 잠:0 };
+    }
+
     /* 테스트 모드 — 수치가 줄지도 차지도 않습니다.
        가득 채워두면 '이미 배불러' 라며 거절해서 밥·물·목욕을 눌러볼 수가 없습니다.
        그래서 늘 받아주는 높이(60)로 붙잡아 둡니다. */
@@ -1534,7 +1559,8 @@ const Game = {
       /* 불을 꺼주면 금방 눕습니다 (재워주는 것) */
       const tired  = (불꺼짐 ? 58 : 38) + s._sleepJitter;
       const rested = tired + 30;
-      if (!s.asleep && s.energy < tired) { s.asleep = true;  s._sleepJitter = null; }
+      if (!s.asleep && s.energy < tired) { s.asleep = true;  s._sleepJitter = null;
+                                           this.일기세기('잠'); }
       /* 직접 재웠으면, 그리고 불이 꺼져 있으면 스스로 깨지 않습니다.
          불을 꺼주는 건 '자라' 는 뜻인데, 기준 높이만 올리고 스스로 깨게 두면
          한 시간에 한 번씩 깼다 자는 건 똑같아서 껐다는 티가 안 났습니다.
@@ -1707,9 +1733,76 @@ const Game = {
   /* 삐지게 하기. 초 단위입니다. 이미 더 오래 삐져 있으면 줄이지 않습니다. */
   삐짐(초){
     const 끝 = Date.now() + 초 * 1000;
+    /* 이미 삐져 있으면 늘어나기만 하고 새로 세지는 않습니다 —
+       한 번 삐진 걸 두 번으로 적으면 일기가 부풀려집니다. */
+    const 새로 = !(this.s.sulkUntil && Date.now() < this.s.sulkUntil);
     if (끝 > (this.s.sulkUntil || 0)) this.s.sulkUntil = 끝;
+    if (새로 && this.s.일기) this.s.일기.삐짐++;
   },
+
+  /* 일기에만 쓰는 세기. 없는 칸이면 그냥 넘어갑니다 */
+  일기세기(k){ if (this.s.일기 && this.s.일기[k] != null) this.s.일기[k]++; },
   풀림(){ this.s.sulkUntil = 0; },
+
+  /* ── 같이 집중하기 ──────────────────────────────────
+     책상에 두는 물건이라 '방해하지 않는 것' 이 늘 첫째였습니다.
+     이건 그걸 피하는 게 아니라 아예 기능으로 만든 것입니다 —
+     정해둔 시간 동안 햄찌가 스스로는 아무것도 안 하고 옆에 웅크립니다.
+
+     끝났다고 알림을 띄우지는 않습니다. 기지개를 한 번 켤 뿐입니다.
+     보고 있었으면 보이고, 아니면 조용히 지나갑니다. */
+  집중중(){ return !this.s.dead && Date.now() < (this.s.focusUntil || 0); },
+  집중남은분(){
+    return Math.max(0, Math.ceil((this.s.focusUntil - Date.now()) / 60000));
+  },
+  집중시작(분){
+    const s = this.s;
+    if (분) s.focusMin = 분;
+    s.focusUntil = Date.now() + (s.focusMin || 25) * 60000;
+    s.focusEnded = 0;
+    /* 자고 있으면 깨워서 같이 앉힙니다 — 같이 있자고 부른 것이니까요 */
+    if (s.asleep){ s.asleep = false; s.forcedAsleep = false; s.forcedAwake = true; }
+    this.save(); this.emit('change');
+  },
+  /* 끝까지 갔으면 true 를 한 번만 돌려줍니다 (기지개는 한 번만) */
+  집중끝났나(){
+    const s = this.s;
+    if (!s.focusUntil || Date.now() < s.focusUntil) return false;
+    s.focusUntil = 0;
+    s.focusDone = (s.focusDone || 0) + 1;
+    /* 같이 버텨준 값 — 조용히 조금만 올립니다 */
+    s.bond += 2; s.mood = clamp(s.mood + 4, 0, 100);
+    this.save(); this.emit('change');
+    return true;
+  },
+  집중그만(){ this.s.focusUntil = 0; this.save(); this.emit('change'); },
+
+  /* ── 오늘 일기 ──────────────────────────────────────
+     한 줄로 답합니다. 창을 새로 띄우지 않습니다 — 말풍선이면 충분하고,
+     창이 뜨면 그것도 '알림' 이 됩니다.
+     아무 일도 없었으면 없었다고 말합니다. 지어내지 않습니다. */
+  일기(){
+    const s = this.s, 일 = s.일기;
+    if (!일 || !일.기준) return null;
+    const 셈 = k => Math.max(0, (s.stats[k] || 0) - (일.기준[k] || 0));
+    const 조각 = [];
+    const 넣기 = (n, 말) => { if (n > 0) 조각.push(말.replace('{n}', n)); };
+    넣기(셈('fed'),      '밥 {n}번 먹고');
+    넣기(셈('watered'),  '물 {n}번 마시고');
+    넣기(셈('played'),   '{n}번 놀고');
+    넣기(셈('ranWheel'), '쳇바퀴 {n}번 타고');
+    넣기(셈('washed'),   '세수 {n}번 하고');
+    넣기(셈('petted'),   '{n}번 쓰다듬어 주고');
+    넣기(일.선물,        '선물 {n}번 가져다주고');
+    넣기(일.잠,          '{n}번 자고');
+    if (!조각.length) return { 빔:true };
+    /* 끝맺음은 오늘 있었던 일로 정합니다 */
+    const 끝 = 일.아픔 ? '아팠던 것 빼면 괜찮은 하루였어.'
+             : 일.삐짐 ? '아까 좀 삐졌었지만 이제 괜찮아.'
+             : '그랬어.';
+    return { 줄: 조각.join(', ') + '. ' + 끝, 수: 조각.length,
+             삐짐: 일.삐짐, 아픔: 일.아픔 };
+  },
 
   /* 지금 어떤 모습이어야 하는가 — 화면 쪽에서 이 값으로 그림을 고릅니다 */
   pose(){
@@ -4061,12 +4154,12 @@ const POSE = {
      그래서 아주 느리게 넘깁니다. 26초에 한 번이면 뒤척이는 게 아니라
      '자세를 슬쩍 고쳤네' 로 읽힙니다.
 
-     cozy1 은 뺐습니다. 옆으로 길게 뻗어 눈을 반쯤 뜨고 이쪽을 보는 장인데,
-     쉬는 모습이라기보다 사람 쪽으로 자세를 잡은 것처럼 보입니다.
-     일하다 곁눈질하는 자리에 오래 떠 있기에는 결이 안 맞습니다.
-     (그림은 스프라이트/cozy1.png 에 그대로 있습니다) */
+     cozy1 은 한 번 뺐다가 도로 넣었습니다. 옆으로 길게 뻗어 눈을 반쯤 뜨고
+     이쪽을 보는 장이라 '느끼하다' 는 말이 나왔는데(버그/3.png), 친구가
+     귀엽다고 해서 되살렸습니다. 다섯 장 중 눈을 뜬 게 이것 하나뿐이라,
+     빼면 쉬는 모습이 전부 눈 감은 것만 남습니다. */
   rest_close: {
-    frames:['cozy2','cozy3','cozy4','cozy5'], fps:0.038,
+    frames:['cozy1','cozy2','cozy3','cozy4','cozy5'], fps:0.038,
     fallback:'rest',
     motion(t){ return breathe(t, 0.5, 0.006); }},
 
@@ -7883,6 +7976,36 @@ const UI = {
 
 
 
+  /* ── 같이 집중하기 ────────────────────────────────────
+     정해둔 시간 동안 스스로는 아무것도 안 합니다.
+     시작할 때 한 마디 하고, 그 뒤로는 조용합니다.
+     끝나도 알리지 않습니다 — 기지개만 한 번 켭니다(onTick 참고). */
+  집중시작(){
+    const 분 = Game.s.focusMin || 25;
+    Game.집중시작(분);
+    this.say(['그래, 조용히 있을게.', '나 여기 있을게. 해봐.',
+              '방해 안 할게. ' + 분 + '분!', '같이 하자.',
+              '(옆에 자리 잡는다)'][(Math.random() * 5) | 0], 3000);
+    /* 자리를 잡고 웅크립니다. 시간이 기니까 busy 로 잡아두지 않고,
+       딴짓을 막는 것만으로 충분합니다 — 밥을 주면 밥 먹는 그림이 나와야 합니다. */
+    this.actor.wanderAt = Date.now() + 999999;
+    Game.busy(this.편한자세(), 4000);
+    this.syncAll();
+  },
+
+  /* 오늘 뭐 했는지 한 줄로. 창을 띄우지 않습니다 — 창이 뜨면 그것도 알림입니다 */
+  오늘일기(){
+    const 일 = Game.일기();
+    if (!일){ this.say('오늘은 이제 막 시작했어.', 3000); return; }
+    if (일.빔){
+      this.say(['오늘은... 아직 아무것도 안 했어.', '음... 딱히?',
+                '오늘은 조용했어.'][(Math.random() * 3) | 0], 3400);
+      return;
+    }
+    /* 길면 오래 띄웁니다 — 읽을 시간이 있어야 합니다 */
+    this.say(일.줄, 3000 + 일.수 * 900);
+  },
+
   /* ── 커서 따라가기 · 먼저 말 걸기 ──────────────────────
      창 쪽(main.js)이 커서 자리를 90ms 마다 보내줍니다. 원래는 눈으로
      쫓기(lookAt)에만 썼는데, 걸어가게도 만들었습니다.
@@ -7974,6 +8097,7 @@ const UI = {
 
     if (모드 === 'off') return;
     if (s.dead || s.asleep || s.busy || this.dragging || this.running) return;
+    if (Game.집중중()) return;          // 집중하는 동안은 다가오지 않습니다
 
     /* 화면 어디쯤인지 (0~1). 창이 화면 전체라 그대로 나눕니다 */
     const 목표 = Math.max(0.02, Math.min(0.98, x / (window.innerWidth || 1)));
@@ -8127,6 +8251,23 @@ const UI = {
       /* 고르는 줄들 — 예전에는 손잡이(슬라이더)였습니다. 그런데 실제로 쓰는 값은
          셋 중 하나뿐이라, 잡아 끄는 수고만 남고 얻는 게 없었습니다.
          크기는 바탕화면에서만 뜻이 있어서 거기서만 나옵니다. */
+      /* ── 같이 집중하기 ──────────────────────────────
+         집중하는 동안에는 다른 줄을 다 지우지 않습니다 — 밥·물은 그대로
+         줄 수 있어야 합니다. 스스로 하는 짓만 멈추는 것이지
+         돌봄까지 막는 게 아닙니다. */
+      it.push({ sep:true });
+      if (Game.집중중()){
+        it.push({ t:'집중 그만하기 (' + Game.집중남은분() + '분 남음)',
+                  fn:() => {
+                    Game.집중그만();
+                    this.say('벌써? 알겠어.', 2600);
+                    this.syncAll();
+                  } });
+      } else {
+        it.push({ t:'같이 집중하기', fn:() => this.집중시작() });
+      }
+      it.push({ t:'오늘 뭐 했어?', fn:() => this.오늘일기() });
+
       it.push({ sep:true });
       if (desk) it.push({ pick:'크기', now: s.deskSize,
                           opts:[['작게', 62], ['보통', 80], ['크게', 100]],
@@ -8149,6 +8290,9 @@ const UI = {
                                    : v === 'always' ? '어디 가든 따라갈래!'
                                    : '심심해 보이면 갈게.', 2600);
                           } });
+      it.push({ pick:'집중', now: (s.focusMin || 25),
+                opts:[['25분', 25], ['45분', 45], ['1시간', 60]],
+                fn: v => { s.focusMin = v; Game.save(); } });
       it.push({ pick:'진하기', now: (View.v.opacity || 100),
                 opts:[['또렷', 100], ['중간', 65], ['흐림', 40]],
                 fn: v => View.set('opacity', v) });
@@ -8570,6 +8714,7 @@ const UI = {
             if (z.dead || z.asleep || u.dragging) return;
             if (z.busy !== 자세) return;
             Game.busy('seed_hold', 3800);
+            Game.일기세기('선물');
             u.say(Talk.pick('seed'), 3000);
             u.syncAll();
           }, 걸음);
@@ -8669,6 +8814,7 @@ const UI = {
             if (z.dead || z.asleep || u.dragging) return;
             if (z.busy !== 'flower_walk') return;
             Game.busy('flower', 3800);
+            Game.일기세기('선물');
             u.say(Talk.pick('flower'), 3000);
             u.syncAll();
           }, 'walk');
@@ -9449,6 +9595,23 @@ const UI = {
        빠져 있었는데, 친밀도가 오르니 바로 티가 났습니다 — 겁먹은 얼굴로
        매달린 채 "♡", "옆에 있을게", "(붙어 앉는다)" 가 떴습니다.
        들었을 때 할 말은 held / held_long 이 따로 합니다. */
+    /* ── 집중하는 동안 ────────────────────────────────
+       끝났으면 기지개를 한 번 켭니다. 말풍선도 소리도 없습니다 —
+       보고 있었으면 보이고, 아니면 조용히 지나갑니다.
+       책상에 두는 물건이라 '끝났어요' 하고 튀어나오면 안 됩니다. */
+    if (Game.집중끝났나()){
+      this.actor.wanderAt = Date.now() + 2000;
+      if (!Game.s.asleep && !Game.s.dead && !this.lifted) Game.busy('stretch', 3200);
+      this.syncAll();
+    }
+    /* 집중하는 동안에는 혼잣말도 딴짓도 없습니다.
+       사람이 눌러서 하는 것(밥·물·쓰다듬기)은 그대로 됩니다. */
+    if (Game.집중중()){
+      this.actor.wanderAt = Date.now() + 60000;
+      this.syncAll();
+      return;
+    }
+
     if (this.talkMode > 0 && !Game.s.dead && !Game.s.asleep && !Game.s.busy
         && !this.lifted && !this.dragging){
       if (Date.now() > this.nextTalk){
