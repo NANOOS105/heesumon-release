@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<!-- heesumon built: '2026-08-28 14:19' -->
+<!-- heesumon built: '2026-08-28 16:01' -->
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -1273,7 +1273,7 @@ const CFG = {
      만든 날짜(built)는 tools/build.py 가 묶을 때 채워 넣습니다 —
      그래서 친구가 받은 파일이 언제 것인지 앱 안에서 바로 확인할 수 있습니다. */
   version: '1.0.0',
-  built:   '2026-08-28 14:19',
+  built:   '2026-08-28 16:01',
 
   saveKey: 'heesumon.save.v1',
   maxOfflineDays: 7,          // 이보다 오래 비워두면 그만큼만 계산합니다
@@ -8930,6 +8930,11 @@ const UI = {
   물고걷기: { leaf_walk:1, leaf_run:1, seed_walk:1, seed_run:1, flower_walk:1,
              chase:1 },
 
+  /* 서 있을 때 쓰면 제자리 걸음이 되는 그림들 (syncAll 참고).
+     물고걷기 에 평범한 걷기·뛰기를 더한 것입니다. */
+  제자리안됨: { leaf_walk:1, leaf_run:1, seed_walk:1, seed_run:1, flower_walk:1,
+               chase:1, walk:1, dash:1, amble:1, run:1 },
+
   /* ── 미끄럼 감시 ──────────────────────────────────────
      "앞을 보는 그림인 채로 옆으로 몇 초 미끄러진다" 는 말이 여러 번 나왔는데
      헤드리스로 네 번을 뒤져도 재현이 안 됐습니다(움직인 프레임 3,500 중 0건).
@@ -9618,6 +9623,29 @@ const UI = {
       }
       else if (this.running)                               p = this.sitting ? 'idle' : 'wheel';
       else                                                 p = G.pose();
+
+      /* ── 제자리 걸음 막기 ──────────────────────────────
+         옮겨 다닐 때 쓰는 그림(꽃·씨·잎사귀를 물고 걷기, 우다다)을
+         **서 있는 채로 쓰면 그 자리에서 발만 구릅니다.**
+
+         이렇게 됩니다. 걷기는 busy 를 7초로 걸어 두고 출발하는데, 그건
+         '못 가고 막혔을 때' 를 위한 상한선입니다. 보통은 도착하면서
+         도착 콜백이 busy 를 다음 것으로 바꿔 끝냅니다. 그런데 그 콜백은
+         도중에 사람이 집어 들거나 재우거나 하면 그냥 물러납니다.
+         그러면 busy 는 걷는 그림인 채로 남고, Game.pose() 는 busy 를
+         그대로 돌려주므로(game.js), 목적지가 없는데도 걷는 그림이 뜹니다.
+
+         자세마다 콜백을 손보는 건 또 빠뜨립니다 — 실제로 붙잡아둔 표정
+         목록에서 세 자세를 줄곧 빠뜨리고 있었습니다. 그러니 여기서
+         한 번에 막습니다. 걷는 그림이면 '멈춰 있을 때의 짝'(fallback)으로
+         물러납니다 — 꽃을 물고 걷기는 꽃을 물고 서 있기가 됩니다.
+         fallback 이 또 걷는 그림일 수 있어서(seed_run→seed_walk) 끝까지 따라갑니다. */
+      if (a.targetX === null && !this.lifted){
+        for (let i = 0; i < 4 && this.제자리안됨[p]; i++){
+          const d = Sprites.POSE[p];
+          p = (d && d.fallback) || 'happy';
+        }
+      }
 
       if (p === 'sleep') p = this.sleepPose();   // 잠은 잠자리까지 간 뒤에
       else this.bedMode(null);
